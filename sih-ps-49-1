@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arogya Sahayak - AI Health Assistant</title>
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Base styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Video and Sparkle Background Styling */
+        #video-bg, #sparkle-bg {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            z-index: -2;
+            object-fit: cover;
+        }
+        #video-bg {
+            filter: blur(8px) brightness(0.7);
+            transform: scale(1.1);
+        }
+        #sparkle-bg {
+             z-index: -1;
+             opacity: 0.6;
+        }
+
+        .content-wrapper {
+            position: relative;
+            z-index: 1;
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+        .dark .content-wrapper {
+            background-color: rgba(17, 24, 39, 0.85);
+        }
+        
+        /* Light theme variables */
+        :root.light {
+            --bg-primary: rgba(255, 255, 255, 0); /* Transparent to show video */
+            --bg-secondary: #f3f4f6;
+            --text-primary: #111827;
+            --text-secondary: #4b5563;
+            --border-color: #e5e7eb;
+            --accent-color: #3b82f6;
+        }
+
+        /* Dark theme variables */
+        :root.dark {
+            --bg-primary: rgba(17, 24, 39, 0); /* Transparent to show video */
+            --bg-secondary: #1f2937;
+            --text-primary: #f9fafb;
+            --text-secondary: #d1d5db;
+            --border-color: #374151;
+            --accent-color: #60a5fa;
+        }
+
+        /* Apply theme variables */
+        .bg-primary { background-color: var(--bg-primary); }
+        .bg-secondary { background-color: var(--bg-secondary); }
+        .text-primary { color: var(--text-primary); }
+        .text-secondary { color: var(--text-secondary); }
+        .border-color { border-color: var(--border-color); }
+        .accent-color { color: var(--accent-color); }
+        .bg-accent { background-color: var(--accent-color); }
+        .border-accent { border-color: var(--border-color); }
+
+        /* Solid background for chat window */
+        #chat-window {
+            background-color: var(--bg-secondary);
+        }
+
+        @keyframes pop-in { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .chat-bubble { animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+        ::-webkit-scrollbar-thumb { background-color: var(--accent-color); border-radius: 10px; border: 2px solid var(--bg-secondary); }
+        
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        details > summary .accordion-icon { transition: transform 0.2s ease-in-out; }
+        details[open] > summary .accordion-icon { transform: rotate(45deg); }
+    </style>
+</head>
+<body class="bg-primary text-primary antialiased">
+
+    <!-- Background Video -->
+    <video autoplay muted loop id="video-bg">
+        <source src="https://assets.mixkit.co/videos/preview/mixkit-flying-through-a-molecular-structure-41223-large.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    <canvas id="sparkle-bg"></canvas>
+
+    <!-- App Container -->
+    <div id="app" class="min-h-screen flex flex-col content-wrapper backdrop-blur-sm">
+
+        <!-- Header -->
+        <header class="bg-secondary/80 backdrop-blur-md border-b border-color sticky top-0 z-40">
+            <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 flex items-center justify-center rounded-lg bg-blue-500 text-white"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M4.93 4.93l1.41 1.41m11.32 0l-1.41 1.41M2 12h4m12 0h4M4.93 19.07l1.41-1.41m11.32 0l-1.41-1.41M12 2a10 10 0 110 20 10 10 0 010-20z"></path></svg></div>
+                        <h1 class="text-xl font-bold text-primary" data-lang-key="title">Arogya Sahayak</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                         <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="National Emblem of India" class="h-8 w-auto hidden sm:block dark:invert" title="National Emblem of India">
+                         <img src="https://upload.wikimedia.org/wikipedia/en/4/41/Flag_of_India.svg" alt="Flag of India" class="h-8 w-auto rounded-sm hidden sm:block" title="Flag of India">
+                        <i data-lucide="trophy" class="w-6 h-6 text-secondary hidden sm:block" title="Smart India Hackathon"></i>
+                        <span id="real-time-clock" class="text-sm font-semibold text-primary hidden md:block"></span>
+                        <select id="language-selector" class="bg-secondary text-primary text-sm rounded-md p-1 border border-color focus:ring-accent focus:border-accent">
+                            <option value="en">English</option><option value="hi">हिन्दी</option><option value="te">తెలుగు</option><option value="bn">বাংলা</option><option value="ta">தமிழ்</option><option value="mr">मराठी</option><option value="gu">ગુજરાતી</option><option value="kn">ಕನ್ನಡ</option><option value="pa">ਪੰਜਾਬੀ</option><option value="es">Español</option>
+                        </select>
+                        <button id="theme-toggle" class="p-2 rounded-full hover:bg-primary"><i data-lucide="sun" class="block dark:hidden"></i><i data-lucide="moon" class="hidden dark:block"></i></button>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="text-center">
+                <h2 class="text-4xl md:text-5xl font-extrabold text-primary mb-4" data-lang-key="heroTitle">Your Personal AI Health Assistant</h2>
+                <p class="text-lg md:text-xl text-secondary max-w-3xl mx-auto" data-lang-key="heroSubtitle">Get instant, reliable health information, first-aid guidance, and support anytime, anywhere. Even offline.</p>
+            </div>
+
+            <!-- Real-Time Health Alerts -->
+            <div class="mt-16 bg-red-100 dark:bg-red-900/30 border border-red-400 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg shadow-lg" role="alert">
+                <div class="flex items-center">
+                    <i data-lucide="alert-triangle" class="w-6 h-6 mr-3"></i>
+                    <h3 class="font-bold" data-lang-key="alertsTitle">Real-Time Health Alerts</h3>
+                </div>
+                <div id="outbreak-alerts" class="mt-2 text-sm">
+                    <p><strong class="font-semibold">[Secunderabad | Updated: 24 Sep 2025, 10:33 PM]</strong> Health officials report a rise in Cholera and Typhoid cases due to monsoon conditions. Ensure drinking water is boiled or purified.</p>
+                    <p class="mt-1"><strong class="font-semibold">[Telangana]</strong> Dengue and Malaria alert remains high. Use mosquito repellents and eliminate stagnant water around homes.</p>
+                </div>
+            </div>
+
+            <!-- Feature Cards -->
+            <div class="grid md:grid-cols-3 gap-8 mt-8">
+                <div class="bg-secondary rounded-xl p-8 text-center shadow-lg transform hover:scale-105 transition-transform duration-300">
+                    <div class="bg-blue-500/20 text-blue-500 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6"><i data-lucide="bot" class="w-8 h-8"></i></div>
+                    <h3 class="text-xl font-bold mb-2 text-primary" data-lang-key="feature1Title">Intelligent Chat</h3>
+                    <p class="text-secondary" data-lang-key="feature1Desc">Ask complex health questions. Our AI understands and provides clear, concise answers with text, images, and videos.</p>
+                </div>
+                <div class="bg-secondary rounded-xl p-8 text-center shadow-lg transform hover:scale-105 transition-transform duration-300">
+                    <div class="bg-green-500/20 text-green-500 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6"><i data-lucide="smartphone" class="w-8 h-8"></i></div>
+                    <h3 class="text-xl font-bold mb-2 text-primary" data-lang-key="feature2Title">Connect Anywhere</h3>
+                    <p class="text-secondary mb-4" data-lang-key="feature2Desc">Access support via WhatsApp or SMS. Critical help is just a message away, even with a weak internet connection.</p>
+                    <div class="flex justify-center space-x-4">
+                         <a href="https://wa.me/919013151515?text=Hello" target="_blank" class="bg-green-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-600">
+                            <i data-lucide="message-circle"></i>
+                            <span>WhatsApp</span>
+                         </a>
+                         <a href="sms:+919013151515?body=Hello" class="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-600">
+                            <i data-lucide="smartphone-nfc"></i>
+                            <span>SMS</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="bg-secondary rounded-xl p-8 text-center shadow-lg transform hover:scale-105 transition-transform duration-300">
+                    <div class="bg-purple-500/20 text-purple-500 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6"><i data-lucide="wifi-off" class="w-8 h-8"></i></div>
+                    <h3 class="text-xl font-bold mb-2 text-primary" data-lang-key="feature3Title">Offline Ready</h3>
+                    <p class="text-secondary" data-lang-key="feature3Desc">Essential first-aid information and your chat history are available offline, ensuring you're never without help.</p>
+                </div>
+            </div>
+
+            <div class="mt-16 space-y-12">
+                <!-- Project Vision Section -->
+                <div class="bg-secondary/80 p-4 rounded-xl shadow-lg">
+                    <details>
+                        <summary class="cursor-pointer flex items-center justify-between p-2">
+                             <h3 class="text-lg font-bold text-primary" data-lang-key="visionTitle">Project Vision</h3>
+                             <i data-lucide="plus" class="accordion-icon w-6 h-6 text-secondary"></i>
+                        </summary>
+                        <div class="mt-4 pt-4 border-t border-color text-secondary space-y-6 px-2">
+                            <div>
+                                <h4 class="font-semibold text-lg text-primary" data-lang-key="visionDescTitle">Description</h4>
+                                <p class="mt-1" data-lang-key="visionDesc">Create a multilingual AI chatbot to educate rural and semi-urban populations about preventive healthcare, disease symptoms, and vaccination schedules. The chatbot should integrate with government health databases and provide real-time alerts for outbreaks.</p>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-lg text-primary" data-lang-key="visionOutcomeTitle">Expected Outcome</h4>
+                                <p class="mt-1" data-lang-key="visionOutcome">A chatbot accessible via WhatsApp or SMS, reaching 80% accuracy in answering health queries and increasing awareness by 20% in target communities.</p>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-lg text-primary" data-lang-key="visionFeasibilityTitle">Technical Feasibility</h4>
+                                <p class="mt-1" data-lang-key="visionFeasibility">Built using NLP frameworks (e.g., Rasa, Dialogflow) with APIs for health data integration, deployable on cloud platforms for scalability.</p>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- Enhanced Health Tracker -->
+                <div class="bg-secondary p-8 rounded-xl shadow-lg">
+                    <h3 class="text-2xl font-bold text-primary mb-6 text-center" data-lang-key="trackerTitle">Personal Health Tracker</h3>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div><label for="age" class="block text-sm font-medium text-secondary mb-1" data-lang-key="ageLabel">Age</label><input type="number" id="age" class="w-full bg-primary border border-color rounded-lg px-3 py-2 text-primary" placeholder="e.g., 30"></div>
+                            <div><label for="gender" class="block text-sm font-medium text-secondary mb-1" data-lang-key="genderLabel">Gender</label><select id="gender" class="w-full bg-primary border border-color rounded-lg px-3 py-2 text-primary"><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
+                            <div><label for="height" class="block text-sm font-medium text-secondary mb-1" data-lang-key="heightLabel">Height (cm)</label><input type="number" id="height" class="w-full bg-primary border border-color rounded-lg px-3 py-2 text-primary" placeholder="e.g., 175"></div>
+                             <div><label for="weight" class="block text-sm font-medium text-secondary mb-1" data-lang-key="weightLabel">Weight (kg)</label><input type="number" id="weight" class="w-full bg-primary border border-color rounded-lg px-3 py-2 text-primary" placeholder="e.g., 70"></div>
+                             <div><label for="blood-type" class="block text-sm font-medium text-secondary mb-1" data-lang-key="bloodTypeLabel">Blood Type</label><select id="blood-type" class="w-full bg-primary border border-color rounded-lg px-3 py-2 text-primary"><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
+                            <div><label for="blood-pressure" class="block text-sm font-medium text-secondary mb-1" data-lang-key="bpLabel">Blood Pressure</label><input type="text" id="blood-pressure" class="w-full bg-primary border border-color rounded-lg px-3 py-2 text-primary" placeholder="SYS/DIA, e.g., 120/80 (Optional)"></div>
+                            <div><label for="blood-sugar" class="block text-sm font-medium text-secondary mb-1" data-lang-key="bsLabel">Blood Sugar (mg/dL)</label><input type="number" id="blood-sugar" class="w-full bg-primary border border-color rounded-lg px-3 py-2 text-primary" placeholder="e.g., 90 (Optional)"></div>
+                        </div>
+                        <div id="health-insights" class="p-4 bg-primary rounded-lg border border-color min-h-[300px] flex flex-col justify-center">
+                            <p class="text-center text-secondary" data-lang-key="insightsPlaceholder">Your health insights and graphs will appear here after you enter your data.</p>
+                        </div>
+                    </div>
+                    <div class="text-center mt-6"><button id="analyze-health-btn" class="bg-accent text-white font-semibold px-6 py-2 rounded-lg hover:opacity-90 transition-opacity" data-lang-key="analyzeBtn">Analyze My Health</button></div>
+                </div>
+
+                <!-- Functional Nearby Hospitals & Emergency -->
+                <div class="bg-secondary p-8 rounded-xl shadow-lg">
+                    <h3 class="text-2xl font-bold text-primary mb-6 text-center" data-lang-key="hospitalsTitle">Find Nearby Hospitals & Emergency Contacts</h3>
+                    <div class="text-center mb-6">
+                        <button id="find-hospitals-btn" class="bg-red-500 text-white font-semibold px-6 py-3 rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center mx-auto space-x-2">
+                            <i data-lucide="map-pin"></i><span data-lang-key="findHospitalsBtn">Find Hospitals Near Me</span>
+                        </button>
+                        <p id="location-status" class="text-sm text-secondary mt-2"></p>
+                    </div>
+                    <div id="hospital-list" class="grid md:grid-cols-2 gap-4">
+                        <!-- Secunderabad Emergency Contacts -->
+                         <div class="p-4 bg-primary rounded-lg border border-color">
+                            <h4 class="font-bold text-red-500" data-lang-key="emergencyTitle">Emergency Numbers (Telangana)</h4>
+                            <ul class="mt-2 space-y-1 text-secondary">
+                                <li><strong data-lang-key="ambulance">Ambulance:</strong> <a href="tel:108" class="text-accent hover:underline">108</a></li>
+                                <li><strong data-lang-key="police">Police:</strong> <a href="tel:100" class="text-accent hover:underline">100</a></li>
+                                <li><strong data-lang-key="fire">Fire:</strong> <a href="tel:101" class="text-accent hover:underline">101</a></li>
+                            </ul>
+                        </div>
+                        <div class="p-4 bg-primary rounded-lg border border-color">
+                            <h4 class="font-bold text-primary" data-lang-key="majorHospitalsTitle">Major Hospitals (Secunderabad)</h4>
+                             <ul class="mt-2 space-y-1 text-secondary">
+                                <li><strong>Yashoda Hospital:</strong> <a href="tel:04045674567" class="text-accent hover:underline">040-45674567</a></li>
+                                <li><strong>KIMS Hospital:</strong> <a href="tel:04044885000" class="text-accent hover:underline">040-44885000</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Health Research & Guidelines -->
+                <div class="bg-secondary p-8 rounded-xl shadow-lg">
+                    <h3 class="text-2xl font-bold text-primary mb-6 text-center" data-lang-key="researchTitle">Health Research & Guidelines</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                        <a href="https://pmjay.gov.in/" target="_blank" rel="noopener noreferrer" class="p-4 bg-primary rounded-lg hover:shadow-md transition-shadow"><span data-lang-key="pmjay">Ayushman Bharat (PM-JAY)</span></a>
+                        <a href="https://www.who.int/" target="_blank" rel="noopener noreferrer" class="p-4 bg-primary rounded-lg hover:shadow-md transition-shadow"><span data-lang-key="who">WHO</span></a>
+                        <a href="https://www.icmr.gov.in/" target="_blank" rel="noopener noreferrer" class="p-4 bg-primary rounded-lg hover:shadow-md transition-shadow"><span data-lang-key="icmr">ICMR</span></a>
+                        <a href="https://ncdc.gov.in/" target="_blank" rel="noopener noreferrer" class="p-4 bg-primary rounded-lg hover:shadow-md transition-shadow"><span data-lang-key="ncdc">NCDC</span></a>
+                    </div>
+                    <h4 class="text-lg font-semibold text-primary mt-8 mb-4 text-center" data-lang-key="connectTitle">Connect with Official Sources</h4>
+                     <div class="flex justify-center space-x-6">
+                        <a href="https://x.com/MoHFW_INDIA" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-accent" title="X (Twitter)"><i data-lucide="x" class="w-8 h-8"></i></a>
+                        <a href="https://www.instagram.com/mohfwindia/" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-accent" title="Instagram"><i data-lucide="instagram" class="w-8 h-8"></i></a>
+                        <a href="https://www.facebook.com/MoHFWIndia" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-accent" title="Facebook"><i data-lucide="facebook" class="w-8 h-8"></i></a>
+                        <a href="https://www.youtube.com/user/mohfwindia" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-accent" title="YouTube"><i data-lucide="youtube" class="w-8 h-8"></i></a>
+                        <a href="https://wa.me/919013151515" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-accent" title="MyGov Corona Helpdesk"><i data-lucide="message-circle" class="w-8 h-8"></i></a>
+                    </div>
+                </div>
+
+                 <!-- Technology Stack -->
+                <div class="bg-secondary/80 p-4 rounded-xl shadow-lg">
+                    <details>
+                        <summary class="cursor-pointer flex items-center justify-between p-2">
+                             <div>
+                                <h3 class="text-lg font-bold text-primary" data-lang-key="techStackTitle">Technology Stack</h3>
+                                <p class="text-xs text-secondary" data-lang-key="techStackSubtitle">(For technical professionals)</p>
+                             </div>
+                             <i data-lucide="plus" class="accordion-icon w-6 h-6 text-secondary"></i>
+                        </summary>
+                        <div class="mt-4 pt-4 border-t border-color grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                            <div class="p-2 bg-primary rounded-lg"><p class="text-secondary">HTML5 & CSS3</p></div>
+                            <div class="p-2 bg-primary rounded-lg"><p class="text-secondary">Tailwind CSS</p></div>
+                            <div class="p-2 bg-primary rounded-lg"><p class="text-secondary">JavaScript (ES6)</p></div>
+                             <div class="p-2 bg-primary rounded-lg"><p class="text-secondary">Chart.js</p></div>
+                             <div class="p-2 bg-primary rounded-lg"><p class="text-secondary">PWA</p></div>
+                            <div class="p-2 bg-primary rounded-lg"><p class="text-secondary">Lucide Icons</p></div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+            <div id="status-indicator" class="fixed bottom-4 left-4 bg-secondary text-primary px-4 py-2 rounded-lg shadow-md text-sm flex items-center space-x-2 z-50"><span id="status-dot" class="w-3 h-3 rounded-full"></span><span id="status-text"></span></div>
+        </main>
+    </div>
+
+    <!-- AI Chatbot UI -->
+    <div id="chatbot-container" class="fixed bottom-6 right-6 z-50">
+        <button id="chatbot-toggle" class="bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-xl hover:bg-blue-700 transition-transform transform hover:scale-110 focus:outline-none"><i data-lucide="message-circle" class="w-8 h-8 block"></i><i data-lucide="x" class="w-8 h-8 hidden"></i></button>
+        <div id="chat-window" class="hidden absolute bottom-20 right-0 w-[90vw] max-w-md h-[70vh] max-h-[600px] rounded-2xl shadow-2xl flex flex-col origin-bottom-right transition-transform duration-300 transform scale-95 opacity-0">
+            <div class="flex-shrink-0 p-4 border-b border-color flex items-center justify-between"><div class="flex items-center space-x-3"><div class="w-10 h-10 flex items-center justify-center rounded-full bg-blue-500 text-white"><i data-lucide="bot" class="w-6 h-6"></i></div><div><h3 class="font-bold text-primary" data-lang-key="chatTitle">AI Health Assistant</h3><p class="text-xs text-green-500 flex items-center"><span class="w-2 h-2 bg-green-500 rounded-full mr-1.5"></span>Online</p></div></div><button id="close-chat" class="p-1 rounded-full text-secondary hover:bg-secondary"><i data-lucide="chevrons-down-up" class="w-5 h-5"></i></button></div>
+            <div id="chat-messages" class="flex-grow p-4 overflow-y-auto space-y-4"><div class="flex items-start space-x-3 chat-bubble"><div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-500 text-white"><i data-lucide="bot" class="w-5 h-5"></i></div><div class="bg-secondary p-3 rounded-lg max-w-xs"><p class="text-sm text-primary" data-lang-key="chatWelcome">Hello! I'm your AI Health Assistant. How can I help you today?</p><p class="text-xs text-secondary mt-2" data-lang-key="chatDisclaimer">Please note, I am an AI assistant and not a medical professional. For emergencies, please contact a doctor.</p></div></div></div>
+            <div class="flex-shrink-0 p-4 border-t border-color bg-primary rounded-b-2xl"><form id="chat-form" class="flex items-center space-x-2"><label for="file-upload" class="p-2 text-secondary hover:bg-secondary rounded-full cursor-pointer"><i data-lucide="paperclip" class="w-5 h-5"></i><input type="file" id="file-upload" class="hidden" accept="image/*"></label><input type="text" id="chat-input" data-lang-key="chatPlaceholder" placeholder="Type your message..." class="flex-grow bg-secondary border-none rounded-full px-4 py-2 text-sm text-primary focus:outline-none" autocomplete="off"><button type="submit" class="bg-blue-600 text-white rounded-full w-10 h-10 flex-shrink-0 flex items-center justify-center hover:bg-blue-700"><i data-lucide="send" class="w-5 h-5"></i></button></form></div>
+        </div>
+    </div>
+    
+    <script>
+        // --- LANGUAGE TRANSLATION ENGINE ---
+        const translations = {
+            en: { title: "Arogya Sahayak", heroTitle: "Your Personal AI Health Assistant", heroSubtitle: "Get instant, reliable health information, first-aid guidance, and support anytime, anywhere. Even offline.", alertsTitle: "Real-Time Health Alerts", visionTitle: "Project Vision", visionDescTitle: "Description", visionDesc: "Create a multilingual AI chatbot to educate rural and semi-urban populations about preventive healthcare, disease symptoms, and vaccination schedules. The chatbot should integrate with government health databases and provide real-time alerts for outbreaks.", visionOutcomeTitle: "Expected Outcome", visionOutcome: "A chatbot accessible via WhatsApp or SMS, reaching 80% accuracy in answering health queries and increasing awareness by 20% in target communities.", visionFeasibilityTitle: "Technical Feasibility", visionFeasibility: "Built using NLP frameworks (e.g., Rasa, Dialogflow) with APIs for health data integration, deployable on cloud platforms for scalability.", feature1Title: "Intelligent Chat", feature1Desc: "Ask complex health questions. Our AI understands and provides clear, concise answers with text, images, and videos.", feature2Title: "Connect Anywhere", feature2Desc: "Access support via WhatsApp or SMS. Critical help is just a message away, even with a weak internet connection.", feature3Title: "Offline Ready", feature3Desc: "Essential first-aid information and your chat history are available offline, ensuring you're never without help.", trackerTitle: "Personal Health Tracker", ageLabel: "Age", genderLabel: "Gender", heightLabel: "Height (cm)", weightLabel: "Weight (kg)", bloodTypeLabel: "Blood Type", bpLabel: "Blood Pressure", bsLabel: "Blood Sugar (mg/dL)", insightsPlaceholder: "Your health insights and graphs will appear here after you enter your data.", analyzeBtn: "Analyze My Health", hospitalsTitle: "Find Nearby Hospitals & Emergency Contacts", findHospitalsBtn: "Find Hospitals Near Me", emergencyTitle: "Emergency Numbers (Telangana)", ambulance: "Ambulance", police: "Police", fire: "Fire", majorHospitalsTitle: "Major Hospitals (Secunderabad)", researchTitle: "Health Research & Guidelines", pmjay: "Ayushman Bharat (PM-JAY)", who: "WHO", icmr: "ICMR", ncdc: "NCDC", connectTitle: "Connect with Official Sources", techStackTitle: "Technology Stack", techStackSubtitle: "(For technical professionals)", chatTitle: "AI Health Assistant", chatWelcome: "Hello! I'm your AI Health Assistant. How can I help you today?", chatPlaceholder: "Type your message...", chatDisclaimer: "Please note, I am an AI assistant and not a medical professional. For emergencies, please contact a doctor.", a_insights_title: "Health Analysis", a_insights_bmi: "Your BMI is", a_insights_bp: "Your Blood Pressure is", a_insights_bs: "Your Blood Sugar is", a_cat_underweight: "Underweight. It's important to consult a doctor to ensure you're getting enough nutrients.", a_cat_healthy: "in the Healthy Range. Great job!", a_cat_overweight: "Overweight. Consider incorporating more activity and a balanced diet.", a_cat_obese: "Obese. It's highly recommended to consult a healthcare professional for a personalized plan.", a_cat_normal: "Normal", a_cat_elevated: "Elevated", a_cat_high1: "High (Stage 1)", a_cat_high2: "High (Stage 2)", a_cat_crisis: "in Hypertensive Crisis. Seek medical help immediately.", a_cat_good: "Good", a_cat_prediabetes: "Pre-diabetes range", a_cat_diabetes: "in Diabetes range. Please consult a doctor.", a_diet_title: "Dietary Suggestions", a_diet_advice_general: "For general wellness, focus on a balanced diet with plenty of fruits, vegetables, whole grains, and lean proteins. Stay hydrated and limit processed foods, sugary drinks, and excessive fats.", a_fetching_location: "Fetching your location...", a_location_error: "Could not get location. Please enable location services.", a_trend_chart_title: "Weight & BMI Trend" },
+            hi: { title: "आरोग्य सहायक", heroTitle: "आपका व्यक्तिगत एआई स्वास्थ्य सहायक", heroSubtitle: "तत्काल, विश्वसनीय स्वास्थ्य जानकारी, प्राथमिक चिकित्सा मार्गदर्शन, और सहायता कभी भी, कहीं भी प्राप्त करें। ऑफ़लाइन भी।", alertsTitle: "वास्तविक समय स्वास्थ्य अलर्ट", visionTitle: "परियोजना दृष्टि", visionDescTitle: "विवरण", visionDesc: "ग्रामीण और अर्ध-शहरी आबादी को निवारक स्वास्थ्य सेवा, बीमारी के लक्षणों और टीकाकरण कार्यक्रम के बारे में शिक्षित करने के लिए एक बहुभाषी एआई चैटबॉट बनाएं। चैटबॉट को सरकारी स्वास्थ्य डेटाबेस के साथ एकीकृत होना चाहिए और प्रकोप के लिए वास्तविक समय पर अलर्ट प्रदान करना चाहिए।", visionOutcomeTitle: "अपेक्षित परिणाम", visionOutcome: "व्हाट्सएप या एसएमएस के माध्यम से सुलभ एक चैटबॉट, जो स्वास्थ्य प्रश्नों का उत्तर देने में 80% सटीकता तक पहुंचता है और लक्षित समुदायों में जागरूकता 20% बढ़ाता है।", visionFeasibilityTitle: "तकनीकी व्यवहार्यता", visionFeasibility: "स्केलेबिलिटी के लिए क्लाउड प्लेटफॉर्म पर तैनाती योग्य, स्वास्थ्य डेटा एकीकरण के लिए एपीआई के साथ एनएलपी फ्रेमवर्क (जैसे, रासा, डायलॉगफ्लो) का उपयोग करके बनाया गया है।", feature1Title: "बुद्धिमान चैट", feature1Desc: "जटिल स्वास्थ्य प्रश्न पूछें। हमारा एआई समझता है और पाठ, छवियों और वीडियो के साथ स्पष्ट, संक्षिप्त उत्तर प्रदान करता है।", feature2Title: "कहीं भी जुड़ें", feature2Desc: "व्हाट्सएप या एसएमएस के माध्यम से सहायता प्राप्त करें। कमजोर इंटरनेट कनेक्शन के साथ भी महत्वपूर्ण मदद सिर्फ एक संदेश दूर है।", feature3Title: "ऑफ़लाइन तैयार", feature3Desc: "आवश्यक प्राथमिक चिकित्सा जानकारी और आपकी चैट हिस्ट्री ऑफ़लाइन उपलब्ध है, यह सुनिश्चित करते हुए कि आप कभी भी मदद के बिना नहीं हैं।", trackerTitle: "व्यक्तिगत स्वास्थ्य ट्रैकर", ageLabel: "आयु", genderLabel: "लिंग", heightLabel: "ऊंचाई (सेमी)", weightLabel: "वजन (किग्रा)", bloodTypeLabel: "रक्त प्रकार", bpLabel: "रक्तचाप", bsLabel: "रक्त शर्करा (मिलीग्राम/डीएल)", insightsPlaceholder: "आपके स्वास्थ्य संबंधी जानकारी और ग्राफ़ आपके डेटा दर्ज करने के बाद यहां दिखाई देंगे।", analyzeBtn: "मेरे स्वास्थ्य का विश्लेषण करें", hospitalsTitle: "आस-पास के अस्पताल और आपातकालीन संपर्क खोजें", findHospitalsBtn: "मेरे पास के अस्पताल खोजें", emergencyTitle: "आपातकालीन नंबर (तेलंगाना)", ambulance: "एम्बुलेंस", police: "पुलिस", fire: "आग", majorHospitalsTitle: "प्रमुख अस्पताल (सिकंदराबाद)", researchTitle: "स्वास्थ्य अनुसंधान और दिशानिर्देश", pmjay: "आयुष्मान भारत (पीएम-जेएवाई)", who: "विश्व स्वास्थ्य संगठन", icmr: "आईसीएमआर", ncdc: "एनसीडीसी", connectTitle: "आधिकारिक स्रोतों से जुड़ें", techStackTitle: "प्रौद्योगिकी स्टैक", techStackSubtitle: "(तकनीकी पेशेवरों के लिए)", chatTitle: "एआई स्वास्थ्य सहायक", chatWelcome: "नमस्ते! मैं आपका एआई स्वास्थ्य सहायक हूँ। आज मैं आपकी कैसे मदद कर सकता हूँ?", chatPlaceholder: "अपना संदेश लिखें...", chatDisclaimer: "कृपया ध्यान दें, मैं एक एआई सहायक हूं, कोई चिकित्सा पेशेवर नहीं। आपात स्थिति के लिए, कृपया डॉक्टर से संपर्क करें।", a_insights_title: "स्वास्थ्य विश्लेषण", a_insights_bmi: "आपका बीएमआई है", a_insights_bp: "आपका रक्तचाप है", a_insights_bs: "आपकी रक्त शर्करा है", a_cat_underweight: "कम वजन। यह सुनिश्चित करने के लिए डॉक्टर से परामर्श करना महत्वपूर्ण है कि आपको पर्याप्त पोषक तत्व मिल रहे हैं।", a_cat_healthy: "स्वस्थ सीमा में। बहुत बढ़िया!", a_cat_overweight: "अधिक वजन। अधिक गतिविधि और संतुलित आहार शामिल करने पर विचार करें।", a_cat_obese: "मोटापा। व्यक्तिगत योजना के लिए स्वास्थ्य देखभाल पेशेवर से परामर्श करने की अत्यधिक अनुशंसा की जाती है।", a_cat_normal: "सामान्य", a_cat_elevated: "बढ़ा हुआ", a_cat_high1: "उच्च (चरण 1)", a_cat_high2: "उच्च (चरण 2)", a_cat_crisis: "उच्च रक्तचाप संकट में। तुरंत चिकित्सा सहायता लें।", a_cat_good: "अच्छा", a_cat_prediabetes: "पूर्व-मधुमेह सीमा", a_cat_diabetes: "मधुमेह सीमा में। कृपया डॉक्टर से सलाह लें।", a_diet_title: "आहार संबंधी सुझाव", a_diet_advice_general: "सामान्य स्वास्थ्य के लिए, फलों, सब्जियों, साबुत अनाज और लीन प्रोटीन से भरपूर संतुलित आहार पर ध्यान दें। हाइड्रेटेड रहें और प्रसंस्कृत खाद्य पदार्थ, मीठे पेय और अत्यधिक वसा को सीमित करें।", a_fetching_location: "आपका स्थान प्राप्त किया जा रहा है...", a_location_error: "स्थान प्राप्त नहीं हो सका। कृपया स्थान सेवाएं सक्षम करें।", a_trend_chart_title: "वजन और बीएमआई ट्रेंड" },
+            te: { title: "ఆరోగ్య సహాయక్", heroTitle: "మీ వ్యక్తిగత AI ఆరోగ్య సహాయకుడు", heroSubtitle: "తక్షణ, విశ్వసనీయ ఆరోగ్య సమాచారం, ప్రథమ చికిత్స మార్గదర్శకత్వం మరియు మద్దతు ఎప్పుడైనా, ఎక్కడైనా పొందండి. ఆఫ్‌లైన్‌లో కూడా.", alertsTitle: "రియల్-టైమ్ ఆరోగ్య హెచ్చరికలు", visionTitle: "ప్రాజెక్ట్ విజన్", visionDescTitle: "వివరణ", visionDesc: "గ్రామీణ మరియు సెమీ-అర్బన్ జనాభాను నివారణ ఆరోగ్య సంరక్షణ, వ్యాధి లక్షణాలు మరియు టీకా షెడ్యూల్‌ల గురించి అవగాహన కల్పించడానికి బహుభాషా AI చాట్‌బాట్‌ను సృష్టించండి. చాట్‌బాట్ ప్రభుత్వ ఆరోగ్య డేటాబేస్‌లతో అనుసంధానించబడాలి మరియు వ్యాప్తి కోసం నిజ-సమయ హెచ్చరికలను అందించాలి.", visionOutcomeTitle: "ఆశించిన ఫలితం", visionOutcome: "వాట్సాప్ లేదా SMS ద్వారా అందుబాటులో ఉండే చాట్‌బాట్, ఆరోగ్య ప్రశ్నలకు సమాధానం ఇవ్వడంలో 80% కచ్చితత్వాన్ని చేరుకుంటుంది మరియు లక్ష్య వర్గాలలో అవగాహనను 20% పెంచుతుంది.", visionFeasibilityTitle: "సాంకేతిక సాధ్యత", visionFeasibility: "NLP ఫ్రేమ్‌వర్క్‌లను (ఉదా., రాసా, డైలాగ్‌ఫ్లో) ఉపయోగించి నిర్మించబడింది, ఆరోగ్య డేటా ఇంటిగ్రేషన్ కోసం APIలతో, స్కేలబిలిటీ కోసం క్లౌడ్ ప్లాట్‌ఫారమ్‌లలో అమర్చవచ్చు.", feature1Title: "తెలివైన చాట్", feature1Desc: "సంక్లిష్ట ఆరోగ్య ప్రశ్నలు అడగండి. మా AI టెక్స్ట్, చిత్రాలు మరియు వీడియోలతో స్పష్టమైన, సంక్షిప్త సమాధానాలను అందిస్తుంది.", feature2Title: "ఎక్కడైనా కనెక్ట్ అవ్వండి", feature2Desc: "WhatsApp లేదా SMS ద్వారా మద్దతును యాక్సెస్ చేయండి. బలహీనమైన ఇంటర్నెట్ కనెక్షన్‌తో కూడా క్లిష్టమైన సహాయం కేవలం ఒక సందేశం దూరంలో ఉంది.", feature3Title: "ఆఫ్‌లైన్ సిద్ధంగా ఉంది", feature3Desc: "అవసరమైన ప్రథమ చికిత్స సమాచారం మరియు మీ చాట్ చరిత్ర ఆఫ్‌లైన్‌లో అందుబాటులో ఉంటాయి, మీరు సహాయం లేకుండా ఎప్పటికీ ఉండరని నిర్ధారిస్తుంది.", trackerTitle: "వ్యక్తిగత ఆరోగ్య ట్రాకర్", ageLabel: "వయస్సు", genderLabel: "లింగం", heightLabel: "ఎత్తు (సెం.మీ)", weightLabel: "బరువు (కిలోలు)", bloodTypeLabel: "రక్త వర్గం", bpLabel: "రక్తపోటు", bsLabel: "రక్తంలో చక్కెర (mg/dL)", insightsPlaceholder: "మీరు మీ డేటాను నమోదు చేసిన తర్వాత మీ ఆరోగ్య అంతర్దృష్టులు మరియు గ్రాఫ్‌లు ఇక్కడ కనిపిస్తాయి.", analyzeBtn: "నా ఆరోగ్యాన్ని విశ్లేషించండి", hospitalsTitle: "సమీపంలోని ఆసుపత్రులు & అత్యవసర పరిచయాలను కనుగొనండి", findHospitalsBtn: "నాకు సమీపంలోని ఆసుపత్రులను కనుగొనండి", emergencyTitle: "అత్యవసర నంబర్లు (తెలంగాణ)", ambulance: "అంబులెన్స్", police: "పోలీసు", fire: "అగ్ని", majorHospitalsTitle: "ప్రధాన ఆసుపత్రులు (సికింద్రాబాద్)", researchTitle: "ఆరోగ్య పరిశోధన & మార్గదర్శకాలు", pmjay: "ఆయుష్మాన్ భారత్ (PM-JAY)", who: "ప్రపంచ ఆరోగ్య సంస్థ", icmr: "ఐసిఎంఆర్", ncdc: "NCDC", connectTitle: "అధికారిక మూలాలతో కనెక్ట్ అవ్వండి", techStackTitle: "టెక్నాలజీ స్టాక్", techStackSubtitle: "(సాంకేతిక నిపుణుల కోసం)", chatTitle: "AI ఆరోగ్య సహాయకుడు", chatWelcome: "నమస్కారం! నేను మీ AI ఆరోగ్య సహాయకుడిని. ఈ రోజు నేను మీకు ఎలా సహాయపడగలను?", chatPlaceholder: "మీ సందేశాన్ని టైప్ చేయండి...", chatDisclaimer: "దయచేసి గమనించండి, నేను AI సహాయకుడిని మరియు వైద్య నిపుణుడిని కాదు. అత్యవసర పరిస్థితుల కోసం, దయచేసి వైద్యుడిని సంప్రదించండి.", a_insights_title: "ఆరోగ్య విశ్లేషణ", a_insights_bmi: "మీ BMI ఉంది", a_insights_bp: "మీ రక్తపోటు ఉంది", a_insights_bs: "మీ రక్తంలో చక్కెర ఉంది", a_cat_underweight: "తక్కువ బరువు. మీకు తగినంత పోషకాలు అందుతున్నాయని నిర్ధారించుకోవడానికి వైద్యుడిని సంప్రదించడం ముఖ్యం.", a_cat_healthy: "ఆరోగ్యకరమైన పరిధిలో. గొప్ప పని!", a_cat_overweight: "అధిక బరువు. మరింత కార్యాచరణ మరియు సమతుల్య ఆహారాన్ని చేర్చడాన్ని పరిగణించండి.", a_cat_obese: "ఊబకాయం. వ్యక్తిగతీకరించిన ప్రణాళిక కోసం ఆరోగ్య సంరక్షణ నిపుణుడిని సంప్రదించడం చాలా సిఫార్సు చేయబడింది.", a_cat_normal: "సాధారణం", a_cat_elevated: "ఎలివేటెడ్", a_cat_high1: "అధిక (దశ 1)", a_cat_high2: "అధిక (దశ 2)", a_cat_crisis: "రక్తపోటు సంక్షోభంలో. వెంటనే వైద్య సహాయం తీసుకోండి.", a_cat_good: "మంచిది", a_cat_prediabetes: "ప్రీ-డయాబెటిస్ పరిధి", a_cat_diabetes: "డయాబెటిస్ పరిధిలో. దయచేసి వైద్యుడిని సంప్రదించండి.", a_diet_title: "ఆహార సూచనలు", a_diet_advice_general: "సాధారణ ఆరోగ్యం కోసం, పండ్లు, కూరగాయలు, తృణధాన్యాలు మరియు లీన్ ప్రోటీన్‌లతో కూడిన సమతుల్య ఆహారంపై దృష్టి పెట్టండి. హైడ్రేట్‌గా ఉండండి మరియు ప్రాసెస్ చేసిన ఆహారాలు, చక్కెర పానీయాలు మరియు అధిక కొవ్వులను పరిమితం చేయండి.", a_fetching_location: "మీ స్థానాన్ని పొందుతోంది...", a_location_error: "స్థానాన్ని పొందలేకపోయింది. దయచేసి స్థాన సేవలను ప్రారంభించండి.", a_trend_chart_title: "బరువు & BMI ట్రెండ్" },
+            bn: { title: "আরোগ্য সহায়ক", heroTitle: "আপনার ব্যক্তিগত এআই স্বাস্থ্য সহকারী", heroSubtitle: "তাত্ক্ষণিক, নির্ভরযোগ্য স্বাস্থ্য তথ্য, প্রাথমিক চিকিৎসার নির্দেশিকা এবং সহায়তা যে কোনও সময়, যে কোনও জায়গায় পান। অফলাইনেও।", techStackSubtitle: "(কারিগরী পেশাদারদের জন্য)", chatTitle: "এআই স্বাস্থ্য সহকারী", chatWelcome: "নমস্কার! আমি আপনার এআই স্বাস্থ্য সহকারী। আজ আমি আপনাকে কিভাবে সাহায্য করতে পারি?", chatPlaceholder: "আপনার বার্তা টাইপ করুন...", chatDisclaimer: "দয়া করে মনে রাখবেন, আমি একজন এআই সহকারী এবং কোনও মেডিকেল পেশাদার নই। জরুরি অবস্থার জন্য, দয়া করে একজন ডাক্তারের সাথে যোগাযোগ করুন।", a_trend_chart_title: "ওজন এবং BMI প্রবণতা"},
+            ta: { title: "ஆரோக்கிய સહાયક", heroTitle: "உங்கள் தனிப்பட்ட AI சுகாதார உதவியாளர்", heroSubtitle: "உடனடி, நம்பகமான சுகாதாரத் தகவல், முதலுதவி வழிகாட்டுதல் மற்றும் ஆதரவை எந்த நேரத்திலும், எந்த இடத்திலும் பெறுங்கள். ஆஃப்லைனிலும்.", techStackSubtitle: "(தொழில்நுட்ப வல்லுநர்களுக்கு)", chatTitle: "AI சுகாதார உதவியாளர்", chatWelcome: "வணக்கம்! நான் உங்கள் AI சுகாதார உதவியாளர். இன்று நான் உங்களுக்கு எப்படி உதவ முடியும்?", chatPlaceholder: "உங்கள் செய்தியை தட்டச்சு செய்க...", chatDisclaimer: "தயவுசெய்து கவனிக்கவும், நான் ஒரு AI உதவியாளர் மற்றும் மருத்துவ நிபுணர் அல்ல. அவசரநிலைகளுக்கு, దయచేసి వైద్యుడిని సంప్రదించండి.", a_trend_chart_title: "எடை மற்றும் பிஎம்ஐ போக்கு"},
+            mr: { title: "आरोग्य सहायक", heroTitle: "तुमचा वैयक्तिक एआय आरोग्य सहाय्यक", heroSubtitle: "त्वरित, विश्वसनीय आरोग्य माहिती, प्रथमोपचार मार्गदर्शन आणि समर्थन कधीही, कुठेही मिळवा. ऑफलाइन देखील.", techStackSubtitle: "(तांत्रिक व्यावसायिकांसाठी)", chatTitle: "एआय आरोग्य सहाय्यक", chatWelcome: "नमस्कार! मी तुमचा एआय आरोग्य सहाय्यक आहे. आज मी तुमची कशी मदत करू शकेन?", chatPlaceholder: "तुमचा संदेश टाइप करा...", chatDisclaimer: "कृपया लक्षात ठेवा, मी एक एआय सहाय्यक आहे आणि वैद्यकीय व्यावसायिक नाही. आपत्कालीन परिस्थितीसाठी, कृपया डॉक्टरांशी संपर्क साधा.", a_trend_chart_title: "वजन आणि बीएमआय ट्रेंड"},
+            gu: { title: "આરોગ્ય સહાયક", heroTitle: "તમારા વ્યક્તિગત AI આરોગ્ય સહાયક", heroSubtitle: "ત્વરિત, વિશ્વસનીય સ્વાસ્થ્ય માહિતી, પ્રાથમિક સારવાર માર્ગદર્શન અને સમર્થન ગમે ત્યારે, ગમે ત્યાં મેળવો. ઑફલાઇન પણ.", techStackSubtitle: "(ટેકનિકલ પ્રોફેશનલ્સ માટે)", chatTitle: "AI આરોગ્ય સહાયક", chatWelcome: "નમસ્તે! હું તમારો AI આરોગ્ય સહાયક છું. આજે હું તમારી કેવી રીતે મદદ કરી શકું?", chatPlaceholder: "તમારો સંદેશ લખો...", chatDisclaimer: "મહેરબાની કરીને નોંધ કરો, હું એક AI સહાયક છું અને તબીબી વ્યાવસાયિક નથી. કટોકટી માટે, કૃપા કરીને ડૉક્ટરનો સંપર્ક કરો.", a_trend_chart_title: "વજન અને BMI ટ્રેન્ડ"},
+            kn: { title: "ಆರೋಗ್ಯ ಸಹಾಯಕ", heroTitle: "ನಿಮ್ಮ ವೈಯक्तिक ಎಐ ಆರೋಗ್ಯ ಸಹಾಯಕ", heroSubtitle: "ತಕ್ಷಣದ, ವಿಶ್ವಾಸಾರ್ಹ ಆರೋಗ್ಯ ಮಾಹಿತಿ, ಪ್ರಥಮ ಚಿಕಿತ್ಸಾ ಮಾರ್ಗದರ್ಶನ ಮತ್ತು ಬೆಂಬಲವನ್ನು ಯಾವುದೇ ಸಮಯದಲ್ಲಿ, ಎಲ್ಲಿಯಾದರೂ ಪಡೆಯಿರಿ. ಆಫ್‌ಲೈನ್‌ನಲ್ಲಿಯೂ ಸಹ.", techStackSubtitle: "(ತಾಂತ್ರಿಕ ವೃತ್ತಿಪರರಿಗೆ)", chatTitle: "ಎಐ ಆರೋಗ್ಯ ಸಹಾಯಕ", chatWelcome: "ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಎಐ ಆರೋಗ್ಯ ಸಹಾಯಕ. ಇಂದು ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಬಹುದು?", chatPlaceholder: "ನಿಮ್ಮ ಸಂದೇಶವನ್ನು ಟೈಪ್ ಮಾಡಿ...", chatDisclaimer: "ದಯವಿಟ್ಟು ಗಮನಿಸಿ, ನಾನು AI ಸಹಾಯಕ ಮತ್ತು ವೈದ್ಯಕೀಯ ವೃತ್ತಿಪರನಲ್ಲ. ತುರ್ತು ಪರಿಸ್ಥಿತಿಗಳಿಗಾಗಿ, ದಯವಿಟ್ಟು ವೈದ್ಯರನ್ನು ಸಂಪರ್ಕಿಸಿ.", a_trend_chart_title: "ತೂಕ ಮತ್ತು BMI ಪ್ರವೃತ್ತಿ"},
+            pa: { title: "ਆਰੋਗਿਆ ਸਹਾਇਕ", heroTitle: "ਤੁਹਾਡਾ ਨਿੱਜੀ ਏਆਈ ਸਿਹਤ ਸਹਾਇਕ", heroSubtitle: "ਤੁਰੰਤ, ਭਰੋਸੇਯੋਗ ਸਿਹਤ ਜਾਣਕਾਰੀ, ਮੁਢਲੀ ਸਹਾਇਤਾ ਮਾਰਗਦਰਸ਼ਨ, ਅਤੇ ਸਹਾਇਤਾ ਕਿਸੇ ਵੀ ਸਮੇਂ, ਕਿਤੇ ਵੀ ਪ੍ਰਾਪਤ ਕਰੋ। ਔਫਲਾਈਨ ਵੀ।", techStackSubtitle: "(ਤਕਨੀਕੀ ਪੇਸ਼ੇਵਰਾਂ ਲਈ)", chatTitle: "ਏਆਈ ਸਿਹਤ ਸਹਾਇਕ", chatWelcome: "ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਤੁਹਾਡਾ ਏਆਈ ਸਿਹਤ ਸਹਾਇਕ ਹਾਂ। ਅੱਜ ਮੈਂ ਤੁਹਾਡੀ ਕਿਵੇਂ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ?", chatPlaceholder: "ਆਪਣਾ ਸੁਨੇਹਾ ਟਾਈਪ ਕਰੋ...", chatDisclaimer: "ਕਿਰਪਾ ਕਰਕੇ ਨੋਟ ਕਰੋ, ਮੈਂ ਇੱਕ ਏਆਈ ਸਹਾਇਕ ਹਾਂ ਨਾ ਕਿ ਇੱਕ ਮੈਡੀਕਲ ਪੇਸ਼ੇਵਰ। ਐਮਰਜੈਂਸੀ ਲਈ, ਕਿਰਪਾ ਕਰਕੇ ਇੱਕ ਡਾਕਟਰ ਨਾਲ ਸੰਪਰਕ ਕਰੋ।", a_trend_chart_title: "ਵਜ਼ਨ ਅਤੇ BMI ਰੁਝਾਨ"},
+            es: { title: "Asistente de Salud Arogya", heroTitle: "Su Asistente de Salud Personal con IA", heroSubtitle: "Obtenga información de salud instantánea y confiable, guía de primeros auxilios y apoyo en cualquier momento y lugar. Incluso sin conexión.", alertsTitle: "Alertas de Salud en Tiempo Real", visionTitle: "Visión del Proyecto", visionDescTitle: "Descripción", visionDesc: "Crear un chatbot de IA multilingüe para educar a las poblaciones rurales y semiurbanas sobre la atención médica preventiva, los síntomas de enfermedades y los calendarios de vacunación. El chatbot debe integrarse con las bases de datos de salud del gobierno y proporcionar alertas en tiempo real sobre brotes.", visionOutcomeTitle: "Resultado Esperado", visionOutcome: "Un chatbot accesible a través de WhatsApp o SMS, que alcance una precisión del 80% en la respuesta a consultas de salud y aumente la conciencia en un 20% en las comunidades objetivo.", visionFeasibilityTitle: "Viabilidad Técnica", visionFeasibility: "Construido utilizando marcos de PNL (por ejemplo, Rasa, Dialogflow) con API para la integración de datos de salud, desplegable en plataformas en la nube para mayor escalabilidad.", feature1Title: "Chat Inteligente", feature1Desc: "Haga preguntas complejas de salud. Nuestra IA entiende y proporciona respuestas claras y concisas con texto, imágenes y videos.", feature2Title: "Conéctese en Cualquier Lugar", feature2Desc: "Acceda al soporte a través de WhatsApp o SMS. La ayuda crítica está a solo un mensaje de distancia, incluso con una conexión a Internet débil.", feature3Title: "Listo para Usar sin Conexión", feature3Desc: "La información esencial de primeros auxilios y su historial de chat están disponibles sin conexión, asegurando que nunca esté sin ayuda.", trackerTitle: "Rastreador de Salud Personal", ageLabel: "Edad", genderLabel: "Género", heightLabel: "Altura (cm)", weightLabel: "Peso (kg)", bloodTypeLabel: "Tipo de Sangre", bpLabel: "Presión Arterial", bsLabel: "Azúcar en Sangre (mg/dL)", insightsPlaceholder: "Sus análisis de salud y gráficos aparecerán aquí después de que ingrese sus datos.", analyzeBtn: "Analizar Mi Salud", hospitalsTitle: "Encontrar Hospitales Cercanos y Contactos de Emergencia", findHospitalsBtn: "Encontrar Hospitales Cerca de Mí", emergencyTitle: "Números de Emergencia (Telangana)", ambulance: "Ambulancia", police: "Policía", fire: "Bomberos", majorHospitalsTitle: "Hospitales Principales (Secunderabad)", researchTitle: "Investigación y Guías de Salud", pmjay: "Ayushman Bharat (PM-JAY)", who: "OMS", icmr: "ICMR", ncdc: "NCDC", connectTitle: "Conéctese con Fuentes Oficiales", techStackTitle: "Pila Tecnológica", techStackSubtitle: "(Para profesionales técnicos)", chatTitle: "Asistente de Salud IA", chatWelcome: "¡Hola! Soy su Asistente de Salud de IA. ¿En qué puedo ayudarle hoy?", chatPlaceholder: "Escriba su mensaje...", chatDisclaimer: "Tenga en cuenta que soy un asistente de IA y no un profesional médico. Para emergencias, póngase en contacto con un médico.", a_insights_title: "Análisis de Salud", a_insights_bmi: "Su IMC es", a_insights_bp: "Su Presión Arterial es", a_insights_bs: "Su Azúcar en Sangre es", a_cat_underweight: "Bajo peso. Es importante consultar a un médico para asegurarse de que está obteniendo suficientes nutrientes.", a_cat_healthy: "en el Rango Saludable. ¡Gran trabajo!", a_cat_overweight: "Sobrepeso. Considere incorporar más actividad y una dieta equilibrada.", a_cat_obese: "Obeso. Se recomienda encarecidamente consultar a un profesional de la salud para un plan personalizado.", a_cat_normal: "Normal", a_cat_elevated: "Elevada", a_cat_high1: "Alta (Etapa 1)", a_cat_high2: "Alta (Etapa 2)", a_cat_crisis: "en Crisis Hipertensiva. Busque ayuda médica de inmediato.", a_cat_good: "Bueno", a_cat_prediabetes: "rango de Pre-diabetes", a_cat_diabetes: "en rango de Diabetes. Por favor, consulte a un médico.", a_diet_title: "Sugerencias Dietéticas", a_diet_advice_general: "Para el bienestar general, concéntrese en una dieta equilibrada con muchas frutas, verduras, granos integrales y proteínas magras. Manténgase hidratado y limite los alimentos procesados, las bebidas azucaradas y el exceso de grasas.", a_fetching_location: "Obteniendo su ubicación...", a_location_error: "No se pudo obtener la ubicación. Por favor, active los servicios de ubicación.", a_trend_chart_title: "Tendencia de Peso e IMC" }
+        };
+        let currentLang = 'en';
+
+        function translatePage(lang) {
+            currentLang = lang;
+            document.querySelectorAll('[data-lang-key]').forEach(el => {
+                const key = el.getAttribute('data-lang-key');
+                const translation = translations[lang]?.[key] || translations['en'][key];
+                if (el.placeholder !== undefined) {
+                    el.placeholder = translation;
+                } else {
+                    el.innerHTML = translation;
+                }
+            });
+            document.documentElement.lang = lang;
+            lucide.createIcons();
+        }
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- INITIALIZATION ---
+            lucide.createIcons();
+            
+            // --- SPARKLE BACKGROUND EFFECT ---
+            const sparkleCanvas = document.getElementById('sparkle-bg');
+            const sparkleCtx = sparkleCanvas.getContext('2d');
+            let sparkles = [];
+
+            function resizeCanvas() {
+                sparkleCanvas.width = window.innerWidth;
+                sparkleCanvas.height = window.innerHeight;
+            }
+            resizeCanvas();
+
+            function createSparkles() {
+                for (let i = 0; i < 100; i++) {
+                    sparkles.push({
+                        x: Math.random() * sparkleCanvas.width,
+                        y: Math.random() * sparkleCanvas.height,
+                        size: Math.random() * 2 + 0.5,
+                        speedX: (Math.random() * 1 - 0.5),
+                        speedY: (Math.random() * 1 - 0.5),
+                        opacity: Math.random() * 0.5 + 0.5
+                    });
+                }
+            }
+
+            function animateSparkles() {
+                sparkleCtx.clearRect(0, 0, sparkleCanvas.width, sparkleCanvas.height);
+                for (let i = 0; i < sparkles.length; i++) {
+                    let s = sparkles[i];
+                    s.x += s.speedX;
+                    s.y += s.speedY;
+
+                    if (s.x < 0 || s.x > sparkleCanvas.width) s.speedX *= -1;
+                    if (s.y < 0 || s.y > sparkleCanvas.height) s.speedY *= -1;
+
+                    sparkleCtx.beginPath();
+                    sparkleCtx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+                    sparkleCtx.fillStyle = `rgba(255, 255, 255, ${s.opacity})`;
+                    sparkleCtx.fill();
+                }
+                requestAnimationFrame(animateSparkles);
+            }
+            createSparkles();
+            animateSparkles();
+            window.addEventListener('resize', resizeCanvas);
+
+
+            // --- LANGUAGE SELECTOR ---
+            const langSelector = document.getElementById('language-selector');
+            const savedLang = localStorage.getItem('language') || 'en';
+            langSelector.value = savedLang;
+            translatePage(savedLang);
+            langSelector.addEventListener('change', (e) => {
+                translatePage(e.target.value);
+                localStorage.setItem('language', e.target.value);
+            });
+            
+            // --- REAL-TIME CLOCK ---
+            const clockElement = document.getElementById('real-time-clock');
+            function updateClock() {
+                const now = new Date();
+                clockElement.textContent = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute:'2-digit' });
+            }
+            setInterval(updateClock, 1000);
+            updateClock();
+
+            // --- THEME MANAGEMENT ---
+            const themeToggle = document.getElementById('theme-toggle');
+            const htmlEl = document.documentElement;
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            htmlEl.classList.add(savedTheme);
+            if(savedTheme === 'dark') htmlEl.classList.remove('light');
+            themeToggle.addEventListener('click', () => {
+                if (htmlEl.classList.contains('light')) {
+                    htmlEl.classList.replace('light', 'dark');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    htmlEl.classList.replace('dark', 'light');
+                    localStorage.setItem('theme', 'light');
+                }
+            });
+
+            // --- CHATBOT UI LOGIC ---
+            const chatbotToggle = document.getElementById('chatbot-toggle');
+            const closeChat = document.getElementById('close-chat');
+            const chatWindow = document.getElementById('chat-window');
+            const toggleOpenIcon = chatbotToggle.querySelector('[data-lucide="message-circle"]');
+            const toggleCloseIcon = chatbotToggle.querySelector('[data-lucide="x"]');
+            const toggleChatbot = () => {
+                const isOpen = !chatWindow.classList.contains('hidden');
+                if (isOpen) {
+                    chatWindow.classList.add('scale-95', 'opacity-0');
+                    setTimeout(() => chatWindow.classList.add('hidden'), 300);
+                    toggleOpenIcon.classList.remove('hidden');
+                    toggleCloseIcon.classList.add('hidden');
+                } else {
+                    chatWindow.classList.remove('hidden');
+                    setTimeout(() => chatWindow.classList.remove('scale-95', 'opacity-0'), 10);
+                    toggleOpenIcon.classList.add('hidden');
+                    toggleCloseIcon.classList.remove('hidden');
+                }
+            };
+            chatbotToggle.addEventListener('click', toggleChatbot);
+            closeChat.addEventListener('click', toggleChatbot);
+
+            // --- CHATBOT FUNCTIONALITY ---
+            const chatForm = document.getElementById('chat-form');
+            const chatInput = document.getElementById('chat-input');
+            const chatMessages = document.getElementById('chat-messages');
+            const fileUpload = document.getElementById('file-upload');
+            
+            fileUpload.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        addMessage(`<img src="${event.target.result}" class="rounded-lg max-w-full h-auto" alt="User upload">`, 'user');
+                        setTimeout(() => addBotResponse("Thanks for the image. I am analyzing it. How can I assist you with this?"), 1500);
+                    };
+                    reader.readDataURL(file);
+                }
+            });
+
+            chatForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const message = chatInput.value.trim();
+                if (message) {
+                    addMessage(message, 'user');
+                    chatInput.value = '';
+                    getBotResponse(message);
+                }
+            });
+
+            const addMessage = (content, sender) => {
+                const messageWrapper = document.createElement('div');
+                messageWrapper.classList.add('flex', 'items-start', 'space-x-3', 'chat-bubble');
+                if (sender === 'user') {
+                    messageWrapper.classList.add('justify-end');
+                    messageWrapper.innerHTML = `<div class="bg-blue-600 text-white p-3 rounded-lg max-w-xs"><div class="text-sm">${content}</div></div><div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-300 text-gray-600"><i data-lucide="user" class="w-5 h-5"></i></div>`;
+                } else {
+                     messageWrapper.innerHTML = `<div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-500 text-white"><i data-lucide="bot" class="w-5 h-5"></i></div><div class="bg-secondary p-3 rounded-lg max-w-xs"><div class="text-sm text-primary">${content}</div></div>`;
+                }
+                chatMessages.appendChild(messageWrapper);
+                lucide.createIcons();
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            };
+            
+            const addBotResponse = (response) => {
+                const thinkingIndicator = document.getElementById('thinking-wrapper');
+                if (thinkingIndicator) thinkingIndicator.remove();
+                addMessage(response, 'bot');
+            };
+
+            const showThinkingIndicator = () => {
+                const thinkingBubble = `<div class="flex items-start space-x-3" id="thinking-wrapper"><div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-500 text-white"><i data-lucide="bot" class="w-5 h-5"></i></div><div class="bg-secondary p-3 rounded-lg max-w-xs"><div class="flex items-center space-x-1" id="thinking"><span class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></span><span class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: 0.2s;"></span><span class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: 0.4s;"></span></div></div></div>`;
+                chatMessages.insertAdjacentHTML('beforeend', thinkingBubble);
+                lucide.createIcons();
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            };
+            
+            const getBotResponse = (message) => {
+                showThinkingIndicator();
+                const lowerCaseMessage = message.toLowerCase();
+                setTimeout(() => {
+                    let response;
+                    if (lowerCaseMessage.includes('image of') && lowerCaseMessage.includes('rash')) {
+                        response = `Here is an image that may help identify a common skin rash. Please note this is for illustrative purposes only. For a proper diagnosis, consult a doctor. <br><img src="https://placehold.co/200x150/f87171/ffffff?text=Rash+Example" class="mt-2 rounded-lg" alt="Example of a skin rash">`;
+                    } else if (lowerCaseMessage.includes('symptoms of') && lowerCaseMessage.includes('flu')) {
+                        response = "Common flu symptoms include fever, cough, sore throat, muscle aches, and fatigue. Protective measures include vaccination, frequent hand washing, and avoiding contact with sick individuals. If symptoms are severe, please see a doctor.";
+                    } else if (lowerCaseMessage.includes('fever')) {
+                        response = "A fever is a common sign of infection. Rest and hydration are important. For adults, over-the-counter medication like paracetamol can help. If the fever is very high or persists for more than 3 days, you should consult a doctor.";
+                    } else if (lowerCaseMessage.includes('headache')) {
+                        response = "Headaches can have many causes. For a common tension headache, resting in a quiet, dark room and drinking water can help. If the headache is severe, sudden, or accompanied by other symptoms like a stiff neck or vision changes, seek medical attention immediately.";
+                    } else if (lowerCaseMessage.includes('burn') || lowerCaseMessage.includes('scald')) {
+                        response = "For a minor burn, immediately cool the area under cool (not cold) running water for at least 10 minutes. Cover it with a sterile, non-adhesive bandage. Do not use ice, butter, or creams. For severe or large burns, seek emergency medical care.";
+                    } else if (lowerCaseMessage.includes('contact') || lowerCaseMessage.includes('doctor')) {
+                        response = `For a consultation, you can visit official telemedicine portals like eSanjeevani. For emergencies, please use the "Find Nearby Hospitals" feature on the main page or call your local emergency number.`;
+                    } else {
+                        response = "I can provide general health information. For specific medical advice, diagnosis, or treatment, please consult a qualified healthcare professional. How else can I help?";
+                    }
+                    addBotResponse(response);
+                }, 1500);
+            };
+
+            // --- HEALTH TRACKER LOGIC ---
+            const analyzeBtn = document.getElementById('analyze-health-btn');
+            const insightsContainer = document.getElementById('health-insights');
+            let healthTrendChart = null;
+            const DB_KEY = 'arogyaHealthData';
+
+            const getHealthData = () => JSON.parse(localStorage.getItem(DB_KEY)) || [];
+            const saveHealthData = (data) => localStorage.setItem(DB_KEY, JSON.stringify(data));
+
+            analyzeBtn.addEventListener('click', () => {
+                const height = parseFloat(document.getElementById('height').value);
+                const weight = parseFloat(document.getElementById('weight').value);
+                const [sys, dia] = (document.getElementById('blood-pressure').value || '0/0').split('/').map(Number);
+                const sugar = parseFloat(document.getElementById('blood-sugar').value);
+                
+                if (!height || !weight || height <= 0 || weight <= 0) {
+                    alert('Please enter valid height and weight.'); return;
+                }
+
+                // Save current data
+                const allData = getHealthData();
+                const newData = { date: new Date().toISOString(), height, weight, sys, dia, sugar };
+                allData.push(newData);
+                saveHealthData(allData);
+
+                // Analyze latest data point
+                const bmi = weight / ((height / 100) ** 2);
+                let bmiCategory;
+                if (bmi < 18.5) { bmiCategory = translations[currentLang].a_cat_underweight; }
+                else if (bmi < 25) { bmiCategory = translations[currentLang].a_cat_healthy; }
+                else if (bmi < 30) { bmiCategory = translations[currentLang].a_cat_overweight; }
+                else { bmiCategory = translations[currentLang].a_cat_obese; }
+                
+                let bpCategory = '';
+                if (sys > 0 && dia > 0) {
+                    if (sys < 120 && dia < 80) { bpCategory = `(${translations[currentLang].a_cat_normal})`; }
+                    else if (sys < 130 && dia < 80) { bpCategory = `(${translations[currentLang].a_cat_elevated})`; }
+                    else if (sys < 140 || dia < 90) { bpCategory = `(${translations[currentLang].a_cat_high1})`; }
+                    else if (sys < 180 || dia < 120) { bpCategory = `(${translations[currentLang].a_cat_high2})`; }
+                    else { bpCategory = `(${translations[currentLang].a_cat_crisis})`; }
+                }
+
+                let bsCategory = '';
+                 if (sugar > 0) {
+                    if (sugar < 70) { bsCategory = "(Low)"; }
+                    else if (sugar < 100) { bsCategory = `(${translations[currentLang].a_cat_good})`; }
+                    else if (sugar < 126) { bsCategory = `(${translations[currentLang].a_cat_prediabetes})`; }
+                    else { bsCategory = `(${translations[currentLang].a_cat_diabetes})`; }
+                }
+                
+                insightsContainer.innerHTML = `
+                    <h4 class="text-lg font-bold text-primary mb-2 text-center">${translations[currentLang].a_insights_title}</h4>
+                    <p class="text-secondary text-sm"><strong>${translations[currentLang].a_insights_bmi}:</strong> ${bmi.toFixed(1)} ${bmiCategory}</p>
+                    ${sys > 0 ? `<p class="text-secondary text-sm"><strong>${translations[currentLang].a_insights_bp}:</strong> ${sys}/${dia} ${bpCategory}</p>` : ''}
+                    ${sugar > 0 ? `<p class="text-secondary text-sm mb-4"><strong>${translations[currentLang].a_insights_bs}:</strong> ${sugar} ${bsCategory}</p>` : '<p class="mb-4"></p>'}
+                    <canvas id="healthTrendChart" class="my-2"></canvas>
+                    <div class="mt-2"><h5 class="font-semibold text-primary">${translations[currentLang].a_diet_title}</h5><p class="text-xs text-secondary mt-1">${translations[currentLang].a_diet_advice_general}</p></div>
+                `;
+
+                // Render Trend Chart
+                if(healthTrendChart) healthTrendChart.destroy();
+                const trendCtx = document.getElementById('healthTrendChart').getContext('2d');
+                const chartData = allData.slice(-10); // show last 10 entries
+                healthTrendChart = new Chart(trendCtx, {
+                    type: 'line',
+                    data: {
+                        labels: chartData.map(d => new Date(d.date).toLocaleDateString()),
+                        datasets: [{
+                            label: `${translations[currentLang].weightLabel}`,
+                            data: chartData.map(d => d.weight),
+                            borderColor: '#3b82f6',
+                            yAxisID: 'y'
+                        }, {
+                            label: 'BMI',
+                            data: chartData.map(d => (d.weight / ((d.height/100)**2)).toFixed(1)),
+                            borderColor: '#10b981',
+                            yAxisID: 'y1'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { title: { display: true, text: translations[currentLang].a_trend_chart_title } },
+                        scales: {
+                            y: { type: 'linear', display: true, position: 'left' },
+                            y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false } }
+                        }
+                    }
+                });
+            });
+
+            // --- NEARBY HOSPITALS LOGIC ---
+            const findHospitalsBtn = document.getElementById('find-hospitals-btn');
+            const locationStatus = document.getElementById('location-status');
+            findHospitalsBtn.addEventListener('click', () => {
+                if ('geolocation' in navigator) {
+                    locationStatus.textContent = translations[currentLang].a_fetching_location;
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const { latitude, longitude } = position.coords;
+                            locationStatus.textContent = `Location found. Redirecting to maps...`;
+                            const mapsUrl = `https://www.google.com/maps/search/hospitals/@${latitude},${longitude},15z`;
+                            window.open(mapsUrl, '_blank');
+                        },
+                        () => { locationStatus.textContent = translations[currentLang].a_location_error; }
+                    );
+                } else {
+                    locationStatus.textContent = 'Geolocation is not supported by your browser.';
+                }
+            });
+            
+            // --- ONLINE/OFFLINE STATUS LOGIC ---
+            const statusIndicator = document.getElementById('status-indicator'), statusDot = document.getElementById('status-dot'), statusText = document.getElementById('status-text');
+            function updateOnlineStatus() {
+                const isOnline = navigator.onLine;
+                statusDot.className = `w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`;
+                statusText.textContent = isOnline ? 'Online' : 'Offline';
+                statusIndicator.style.display = 'flex';
+                 if (isOnline) {
+                    setTimeout(() => { statusIndicator.style.display = 'none'; }, 4000);
+                }
+            }
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            updateOnlineStatus();
+        });
+
+        // --- PWA SERVICE WORKER ---
+        // Service workers can only be registered on secure origins (https) or localhost.
+        // This check prevents registration errors when running from a blob URL or insecure origin.
+        if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+            const manifest = {
+                "name": "Arogya Sahayak", "short_name": "Arogya", "start_url": ".", "display": "standalone",
+                "background_color": "#ffffff", "theme_color": "#3b82f6", "description": "Your Personal AI Health Assistant.",
+                "icons": [{"src":"https://placehold.co/192x192/3b82f6/ffffff?text=AS","type":"image/png","sizes":"192x192"}, {"src":"https://placehold.co/512x512/3b82f6/ffffff?text=AS","type":"image/png","sizes":"512x512"}]
+            };
+            const manifestURL = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'}));
+            document.querySelector('link[rel="manifest"]').setAttribute('href', manifestURL);
+
+            const swCode = `
+                const CACHE_NAME = 'arogya-sahayak-cache-v3';
+                self.addEventListener('install', e => e.waitUntil(caches.open(CACHE_NAME).then(c => c.add('/'))));
+                self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
+            `;
+            const swUrl = URL.createObjectURL(new Blob([swCode], { type: 'application/javascript' }));
+            navigator.serviceWorker.register(swUrl).then(() => console.log('SW registered.')).catch(e => console.error('SW registration failed:', e));
+        }
+    </script>
+</body>
+</html>
+
+
