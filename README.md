@@ -1,13 +1,13 @@
 # sic-prototype
 Smart India Hackathon prototype
 
-Arogya Sahayak: Your Personal AI Health Assistant
+*Arogya Sahayak: Your Personal AI Health Assistant*
 Arogya Sahayak is a comprehensive health management platform designed to provide instant, reliable health information and emergency support. It bridges the gap between digital health tracking and real-world medical assistance, with a specific focus on offline accessibility and regional support.
 
 🌟 Expanded Features
 Personal Health Tracker: A dedicated module to log and monitor vital statistics including Age, Gender, Height, Weight, Blood Type, Blood Pressure, and Blood Sugar levels.
 
-Emergency & Local Search:
+*Emergency & Local Search:*
 
 Find Nearby Hospitals: One-click functionality to locate medical facilities.
 
@@ -19,7 +19,7 @@ Multilingual Support: Supports 10+ languages including English, Hindi, Telugu, B
 
 Hybrid Connectivity: Functional via WhatsApp/SMS for low-bandwidth areas and features a Progressive Web App (PWA) architecture for offline use.
 
-🏥 Research & Compliance
+*🏥 Research & Compliance*
 The platform integrates guidelines and research from recognized official health organizations:
 
 Ayushman Bharat (PM-JAY)
@@ -30,7 +30,7 @@ Indian Council of Medical Research (ICMR)
 
 National Centre for Disease Control (NCDC)
 
-🛠️ Technology Stack
+*🛠️ Technology Stack*
 Designed for high performance and cross-platform compatibility:
 
 Frontend: HTML5, CSS3, and Tailwind CSS.
@@ -43,5 +43,5 @@ Architecture: Progressive Web App (PWA) for offline capabilities.
 
 Iconography: Lucide Icons.
 
-📡 Real-Time Monitoring
+*📡 Real-Time Monitoring*
 The system includes a Real-Time Health Alert banner that broadcasts critical updates based on monsoon conditions and regional outbreaks, such as rise in Cholera, Typhoid, Dengue, or Malaria cases in specific areas like Secunderabad and Telangana.
